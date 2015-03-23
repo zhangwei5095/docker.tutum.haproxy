@@ -37,6 +37,7 @@ You can overwrite the following HAProxy configuration options:
 * `SSL_BIND_OPTIONS` (default: `no-sslv3`): Optional. Explicitly set which SSL bind options will be used for the SSL server. This sets the HAProxy `ssl-default-bind-options` configuration setting. The default will allow only TLSv1.0+ to be used on the SSL server.
 * `SSL_BIND_CIPHERS` (default: `None`): Optional. Explicitly set which SSL ciphers will be used for the SSL server. This sets the HAProxy `ssl-default-bind-ciphers` configuration setting.
 * `VIRTUAL_HOST` (default: `**None**`): Optional. Let HAProxy route by domain name. Format `LINK_ALIAS=DOMAIN`, comma separated.
+* `WEBSOCKET_HOST` (default: `**None**`): Optional. Let HAProxy support websocket. Format `LINK_ALIAS1, LINK_ALIAS2`, comma separated.
 
 Check [the HAProxy configuration manual](http://haproxy.1wt.eu/download/1.4/doc/configuration.txt) for more information on the above.
 
@@ -137,6 +138,24 @@ When you access `http://www.webapp1.com`, it will show the service running in co
 
     docker run -d -e VIRTUAL_HOST=node.io --name webapp tutum/hello-world
     docker run -d --link webapp:webapp -e HDR="hdr_end" -p 80:80 tutum/haproxy
+
+### I need websocket support
+
+Similar to VIRTUAL_HOST, you can do either:
+
+    docker run -d --name webapp tutum/hello-world
+    docker run -d --name websock1 yourwebsocket
+    docker run -d --name websock2 yourwebsocket
+    docker run -d --link webapp:webapp --link websock1:websock1 --link websock2:websock2 -e WEBSOCKET_HOST="websock1, websock2" tutum/haproxy
+
+or
+
+    docker run -d --name webapp tutum/hello-world
+    docker run -d -e WEBSOCKET_HOST=yes --name websock1 yourwebsocket
+    docker run -d -e WEBSOCKET_HOST=true --name websock2 yourwebsocket
+    docker run -d --link webapp:webapp --link websock1:websock1 --link websock2:websock2 tutum/haproxy
+
+On second method, you need to set `WEBSOCKET_HOST` to `true` or `yes` when launching your websocket container.
 
 
 Topologies using virtual hosts

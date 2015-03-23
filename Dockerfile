@@ -38,6 +38,9 @@ ENV TIMEOUT connect 5000, client 50000, server 50000
 # Virtual host
 ENV VIRTUAL_HOST **None**
 
+# Websocket
+ENV WEBSOCKET_HOST **None**
+
 # SSL certificate to use (optional)
 ENV SSL_CERT **None**
 

@@ -28,6 +28,7 @@ SESSION_COOKIE = os.getenv("SESSION_COOKIE")
 OPTION = os.getenv("OPTION", "redispatch, httplog, dontlognull, forwardfor").split(",")
 TIMEOUT = os.getenv("TIMEOUT", "connect 5000, client 50000, server 50000").split(",")
 VIRTUAL_HOST = os.getenv("VIRTUAL_HOST", None)
+WEBSOCKET_HOST = os.getenv("WEBSOCKET_HOST", None)
 TUTUM_CONTAINER_API_URL = os.getenv("TUTUM_CONTAINER_API_URL", None)
 POLLING_PERIOD = max(int(os.getenv("POLLING_PERIOD", 30)), 5)
 
@@ -42,6 +43,7 @@ LINK_ADDR_SUFFIX = LINK_ENV_PATTERN + "_ADDR"
 LINK_PORT_SUFFIX = LINK_ENV_PATTERN + "_PORT"
 TUTUM_URL_SUFFIX = "_TUTUM_API_URL"
 VIRTUAL_HOST_SUFFIX = "_ENV_VIRTUAL_HOST"
+WEBSOCKET_HOST_SUFFIX = "_ENV_WEBSOCKET_HOST"
 
 # Global Var
 HAPROXY_CURRENT_SUBPROCESS = None
@@ -105,7 +107,7 @@ def get_backend_routes(dict_var):
     return addr_port_dict
 
 
-def update_cfg(cfg, backend_routes, vhost):
+def update_cfg(cfg, backend_routes, vhost, wshost):
     logger.debug("Updating cfg: \n old cfg: %s\n backend_routes: %s\n vhost: %s", cfg, backend_routes, vhost)
     # Set frontend
     frontend = []
@@ -114,6 +116,9 @@ def update_cfg(cfg, backend_routes, vhost):
         frontend.append("reqadd X-Forwarded-Proto:\ https")
         frontend.append("redirect scheme https code 301 if !{ ssl_fc }"),
         frontend.append("bind 0.0.0.0:443 %s" % SSL)
+    if wshost:
+        frontend.append("acl is_websocket hdr(Upgrade) -i WebSocket")
+        frontend.append("use_backend websocket_backend if is_websocket")
     if vhost:
         added_vhost = {}
         for _, domain_name in vhost.iteritems():
@@ -127,6 +132,17 @@ def update_cfg(cfg, backend_routes, vhost):
     cfg["frontend default_frontend"] = frontend
 
     # Set backend
+    if wshost:
+        backend = ["balance %s" % BALANCE, "option http-server-close"]
+        for _wshost in wshost:
+            service_name=_wshost.upper()
+            for container_name, addr_port in backend_routes.iteritems():
+                if container_name.startswith(service_name):
+                    server_string = "server %s %s:%s" % (container_name, addr_port["addr"], addr_port["port"])
+                    if SESSION_COOKIE:
+                        server_string += " cookie check"
+                    backend.append(server_string)
+        cfg["backend websocket_backend"] = sorted(backend)
     if vhost:
         added_vhost = {}
         for service_name, domain_name in vhost.iteritems():
@@ -242,12 +258,26 @@ def update_virtualhost(vhost):
                 vhost[hostname] = value
 
 
+def update_websockethost(wshost):
+    if WEBSOCKET_HOST:
+        # websocket host specified using environment variables
+        for host in WEBSOCKET_HOST.split(","):
+            wshost.append(host.strip())
+    else:
+        # websocket specified in the linked containers
+        for name, value in os.environ.iteritems():
+            position = string.find(name, WEBSOCKET_HOST_SUFFIX)
+            if position != -1 and value != "**None**":
+                wshost.append(name[:position])
+
+
 if __name__ == "__main__":
     logging.basicConfig(stream=sys.stdout)
     logging.getLogger(__name__).setLevel(logging.DEBUG if DEBUG else logging.INFO)
 
     cfg = create_default_cfg(MAXCONN, MODE)
     vhost = {}
+    wshost = []
 
     # Tell the user the mode of autoupdate we are using, if any
     if TUTUM_CONTAINER_API_URL:
@@ -284,7 +314,8 @@ if __name__ == "__main__":
 
             # Update backend routes
             update_virtualhost(vhost)
-            update_cfg(cfg, backend_routes, vhost)
+            update_websockethost(wshost)
+            update_cfg(cfg, backend_routes, vhost, wshost)
             cfg_text = get_cfg_text(cfg)
 
             # If cfg changes, write to file
