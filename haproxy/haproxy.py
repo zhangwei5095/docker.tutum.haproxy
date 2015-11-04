@@ -17,6 +17,7 @@ logger = logging.getLogger("haproxy")
 class Haproxy(object):
     # envvar
     envvar_default_ssl_cert = os.getenv("DEFAULT_SSL_CERT") or os.getenv("SSL_CERT")
+    envvar_extra_ssl_certs = os.getenv("EXTRA_SSL_CERTS")
     envvar_default_ca_cert = os.getenv("CA_CERT")
     envvar_maxconn = os.getenv("MAXCONN", "4096")
     envvar_mode = os.getenv("MODE", "http")
@@ -142,6 +143,7 @@ class Haproxy(object):
             certs.append(self.envvar_default_ssl_cert)
         if self.envvar_default_ca_cert:
             cacerts.append(self.envvar_default_ca_cert)
+        certs.extend(self.get_extra_ssl_certs())
         certs.extend(self.specs.get_default_ssl_cert())
         certs.extend(self.specs.get_ssl_cert())
         if certs:
@@ -156,6 +158,12 @@ class Haproxy(object):
                 self.ssl_updated = True
                 self._save_ca_certs(cacerts)
             self.ssl += " ca-file /cacerts/cert0.pem verify required"
+
+    def get_extra_ssl_certs(self):
+        extra_certs = []
+        for cert_name in self.envvar_extra_ssl_certs.split():
+            extra_certs.append(os.getenv(cert_name))
+        return extra_certs
 
     def _save_certs(self, certs):
         try:
