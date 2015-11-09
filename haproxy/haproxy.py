@@ -161,8 +161,9 @@ class Haproxy(object):
 
     def get_extra_ssl_certs(self):
         extra_certs = []
-        for cert_name in self.envvar_extra_ssl_certs.split():
-            extra_certs.append(os.getenv(cert_name))
+        if self.envvar_extra_ssl_certs:
+            for cert_name in self.envvar_extra_ssl_certs.split():
+                extra_certs.append(os.getenv(cert_name))
         return extra_certs
 
     def _save_certs(self, certs):
