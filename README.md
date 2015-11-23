@@ -52,6 +52,7 @@ Settings in this part is immutable, you have to redeploy HAProxy service to make
 |env var|default|description|
 |:-----:|:-----:|:----------|
 |DEFAULT_SSL_CERT||Default ssl cert, a pem file with private key followed by public certificate, '\n'(two chars) as the line separator.|
+|EXTRA_SSL_CERTS||List of extra certificate names separated by space, eg. `CERT1 CERT2 CERT3`. You also need to specify each certifcate as separate env variables like so: `CERT1="<cert-body1>"`, `CERT2="<cert-body2>"`, `CERT3="<cert-body3>"`|
 |BALANCE|roundrobin|load balancing algorithm to use. Possible values include: `roundrobin`, `static-rr`, `source`, `leastconn`. See:[HAProxy:balance](https://cbonte.github.io/haproxy-dconv/configuration-1.5.html#4-balance)|
 |MODE|http|mode of load balancing for HAProxy. Possible values include: `http`, `tcp`, `health`|
 |MAXCONN|4096|sets the maximum per-process number of concurrent connections.|
