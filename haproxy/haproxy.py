@@ -531,12 +531,12 @@ class Haproxy(object):
 
             if not service_alias:
                 if self.require_default_route:
-                    cfg["backend default_service"] = sorted(backend)
+                    cfg["backend default_service"] = backend
             else:
                 if self._get_service_attr("virtual_host", service_alias):
-                    cfg["backend SERVICE_%s" % service_alias] = sorted(backend)
+                    cfg["backend SERVICE_%s" % service_alias] = backend
                 else:
-                    cfg["backend default_service"] = sorted(backend)
+                    cfg["backend default_service"] = backend
         return cfg
 
     def _get_service_attr(self, attr_name, service_alias=None):
