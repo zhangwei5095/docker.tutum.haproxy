@@ -1,6 +1,11 @@
-import re
 import os
+import re
 import urlparse
+from multiprocessing.pool import ThreadPool
+
+import haproxy
+
+LINK_CACHE = {}
 
 
 def parse_uuid_from_resource_uri(uri):
@@ -51,8 +56,16 @@ class Specs(object):
     def _parse_envvars(self, tutum_haproxy_container):
         envvars = {}
         if tutum_haproxy_container:
-            for pair in tutum_haproxy_container.container_envvars:
-                envvars[pair['key']] = pair['value']
+            links = [link["to_container"] for link in tutum_haproxy_container.linked_to_container]
+            link_names = [link["name"].upper().replace("-", "_") for link in tutum_haproxy_container.linked_to_container]
+            new_links = filter(lambda x: x not in LINK_CACHE, links)
+            pool = ThreadPool(processes=10)
+            containers = pool.map(haproxy.Haproxy.fetch_tutum_obj, new_links)
+            for i, link in enumerate(new_links):
+                LINK_CACHE[link] = containers[i].container_envvars
+            for i, link in enumerate(links):
+                for pair in LINK_CACHE[link]:
+                    envvars["%s_ENV_%s" % (link_names[i],pair['key'])] = pair['value']
         else:
             envvars = os.environ
         return envvars
