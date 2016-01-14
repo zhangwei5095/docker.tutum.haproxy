@@ -8,7 +8,7 @@ import tutum
 from haproxy import Haproxy
 from parser import parse_uuid_from_resource_uri
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 tutum.user_agent = "tutum-haproxy/%s" % __version__
 
 DEBUG = os.getenv("DEBUG", False)
@@ -77,13 +77,13 @@ def main():
     if Haproxy.cls_container_uri and Haproxy.cls_service_uri:
         if Haproxy.cls_tutum_auth:
             logger.info(
-                "Tutum-haproxy(PID: %s) has access to Tutum API - will reload list of backends in real-time" % pid)
+                "Tutum-haproxy %s (PID: %s) has access to Tutum API - will reload list of backends in real-time" % (__version__, pid))
         else:
             logger.warning(
-                "Tutum-haproxy(PID: %s) doesn't have access to Tutum API and it's running in Tutum - you might want to"
-                " give an API role to this service for automatic backend reconfiguration" % pid)
+                "Tutum-haproxy %s (PID: %s) doesn't have access to Tutum API and it's running in Tutum - you might want to"
+                " give an API role to this service for automatic backend reconfiguration" % (__version__, pid))
     else:
-        logger.info("Tutum-haproxy(PID: %s) is not running in Tutum" % pid)
+        logger.info("Tutum-haproxy %s (PID: %s) is not running in Tutum" % (__version__, pid))
 
     if Haproxy.cls_container_uri and Haproxy.cls_service_uri and Haproxy.cls_tutum_auth:
         events = tutum.TutumEvents()
