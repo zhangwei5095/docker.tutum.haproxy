@@ -372,9 +372,8 @@ class Haproxy(object):
                 # calculate virtual host rule
                 host_rules = []
                 host = vhost["host"].strip("/")
-                if host == "*":
-                    pass
-                elif "*" in host:
+
+                if "*" in host:
                     host_rules.append("acl host_rule_%d hdr_reg(host) -i ^%s$" % (
                         rule_counter, host.replace(".", "\.").replace("*", ".*")))
                     host_rules.append("acl host_rule_%d_port hdr_reg(host) -i ^%s:%s$" % (

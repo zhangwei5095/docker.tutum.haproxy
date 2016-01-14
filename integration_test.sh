@@ -157,7 +157,37 @@ curl -sSfL --resolve web-b.org:8080:${DOCKER_HOST_IP} web-b.org:8080 2>&1 | grep
 curl -sSfL --resolve web-b.org:8080:${DOCKER_HOST_IP} -H 'Host:web-b.org' web-b.org:8080 2>&1 | grep -iF 'My hostname is web-b' > /dev/null
 echo
 
-echo "=> The virtual host with wildcard in host and on a non-default port"
+echo "=> Test virualhost with a value of *"
+rm_container web-a lb
+docker run -d --name web-a -e HOSTNAME=web-a -e VIRTUAL_HOST="*" tutum/hello-world
+docker run -d --name lb --link web-a:web-a -p 80:80 haproxy
+wait_for_startup http://${DOCKER_HOST_IP}:80
+curl -sSfL --resolve web-a.org:80:${DOCKER_HOST_IP} web-a.org:80 2>&1 | grep -iF 'My hostname is web-a' > /dev/null
+curl -sSfL --resolve web-a.org:80:${DOCKER_HOST_IP} -H 'Host:web-a.org' web-a.org:80 2>&1 | grep -iF 'My hostname is web-a' > /dev/null
+echo
+
+echo "=> Test virualhost with a value of */"
+rm_container web-a lb
+docker run -d --name web-a -e HOSTNAME=web-a -e VIRTUAL_HOST="*/" tutum/hello-world
+docker run -d --name lb --link web-a:web-a -p 80:80 haproxy
+wait_for_startup http://${DOCKER_HOST_IP}:80
+curl -sSfL --resolve web-a.org:80:${DOCKER_HOST_IP} web-a.org:80 2>&1 | grep -iF 'My hostname is web-a' > /dev/null
+curl -sSfL --resolve web-a.org:80:${DOCKER_HOST_IP} -H 'Host:web-a.org' web-a.org:80 2>&1 | grep -iF 'My hostname is web-a' > /dev/null
+curl -sSfL --resolve web-a.org:80:${DOCKER_HOST_IP} web-a.org/abc 2>&1 | grep -iF '503 Service Unavailable' > /dev/null
+echo
+
+echo "=> Test virualhost with a value of */*"
+rm_container web-a lb
+docker run -d --name web-a -e HOSTNAME=web-a -e VIRTUAL_HOST="*/*" tutum/hello-world
+docker run -d --name lb --link web-a:web-a -p 80:80 haproxy
+wait_for_startup http://${DOCKER_HOST_IP}:80
+curl -sSfL --resolve web-a.org:80:${DOCKER_HOST_IP} web-a.org:80 2>&1 | grep -iF 'My hostname is web-a' > /dev/null
+curl -sSfL --resolve web-a.org:80:${DOCKER_HOST_IP} -H 'Host:web-a.org' web-a.org:80 2>&1 | grep -iF 'My hostname is web-a' > /dev/null
+curl -sSfL --resolve web-a.org:80:${DOCKER_HOST_IP} web-a.org:80/abc 2>&1 | grep -iF 'My hostname is web-a' > /dev/null
+echo
+
+
+echo "=> Test virtual host with wildcard in host and on a non-default port"
 rm_container web-a lb
 docker run -d --name web-a -e HOSTNAME=web-a -e VIRTUAL_HOST="http://web-*.org:8080" tutum/hello-world
 docker run -d --name lb --link web-a:web-a -p 8080:8080 haproxy
