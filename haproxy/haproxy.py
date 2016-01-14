@@ -17,6 +17,7 @@ logger = logging.getLogger("haproxy")
 class Haproxy(object):
     # envvar
     envvar_default_ssl_cert = os.getenv("DEFAULT_SSL_CERT") or os.getenv("SSL_CERT")
+    envvar_extra_ssl_certs = os.getenv("EXTRA_SSL_CERTS")
     envvar_default_ca_cert = os.getenv("CA_CERT")
     envvar_maxconn = os.getenv("MAXCONN", "4096")
     envvar_mode = os.getenv("MODE", "http")
@@ -144,6 +145,7 @@ class Haproxy(object):
             certs.append(self.envvar_default_ssl_cert)
         if self.envvar_default_ca_cert:
             cacerts.append(self.envvar_default_ca_cert)
+        certs.extend(self.get_extra_ssl_certs())
         certs.extend(self.specs.get_default_ssl_cert())
         certs.extend(self.specs.get_ssl_cert())
         if certs:
@@ -158,6 +160,13 @@ class Haproxy(object):
                 self.ssl_updated = True
                 self._save_ca_certs(cacerts)
             self.ssl += " ca-file /cacerts/cert0.pem verify required"
+
+    def get_extra_ssl_certs(self):
+        extra_certs = []
+        if self.envvar_extra_ssl_certs:
+            for cert_name in self.envvar_extra_ssl_certs.split():
+                extra_certs.append(os.getenv(cert_name))
+        return extra_certs
 
     def _save_certs(self, certs):
         try:
@@ -363,9 +372,8 @@ class Haproxy(object):
                 # calculate virtual host rule
                 host_rules = []
                 host = vhost["host"].strip("/")
-                if host == "*":
-                    pass
-                elif "*" in host:
+
+                if "*" in host:
                     host_rules.append("acl host_rule_%d hdr_reg(host) -i ^%s$" % (
                         rule_counter, host.replace(".", "\.").replace("*", ".*")))
                     host_rules.append("acl host_rule_%d_port hdr_reg(host) -i ^%s:%s$" % (
@@ -523,12 +531,12 @@ class Haproxy(object):
 
             if not service_alias:
                 if self.require_default_route:
-                    cfg["backend default_service"] = sorted(backend)
+                    cfg["backend default_service"] = backend
             else:
                 if self._get_service_attr("virtual_host", service_alias):
-                    cfg["backend SERVICE_%s" % service_alias] = sorted(backend)
+                    cfg["backend SERVICE_%s" % service_alias] = backend
                 else:
-                    cfg["backend default_service"] = sorted(backend)
+                    cfg["backend default_service"] = backend
         return cfg
 
     def _get_service_attr(self, attr_name, service_alias=None):
