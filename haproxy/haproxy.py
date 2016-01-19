@@ -65,9 +65,12 @@ class Haproxy(object):
             container = self.fetch_tutum_obj(Haproxy.cls_container_uri)
             service = self.fetch_tutum_obj(Haproxy.cls_service_uri)
             Haproxy.cls_linked_services = [srv.get("to_service") for srv in service.linked_to_service]
-            logger.info("Current links: %s", ", ".join(
+            logger.info("Current service links: %s", ", ".join(
                 ["%s(%s)" % (srv.get("name"), parse_uuid_from_resource_uri(srv.get("to_service"))) for srv in
                  service.linked_to_service]))
+            logger.info("Current container links: %s", ", ".join(
+                ["%s(%s)" % (srv.get("name"), parse_uuid_from_resource_uri(srv.get("to_container"))) for srv in
+                 container.linked_to_container]))
             self.specs = Specs(container, service)
         else:
             logger.info("Loading HAProxy definition from environment variables")

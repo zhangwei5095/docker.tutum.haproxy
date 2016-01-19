@@ -64,8 +64,9 @@ class Specs(object):
             for i, link in enumerate(new_links):
                 LINK_CACHE[link] = containers[i].container_envvars
             for i, link in enumerate(links):
-                for pair in LINK_CACHE[link]:
-                    envvars["%s_ENV_%s" % (link_names[i],pair['key'])] = pair['value']
+                for env_pair in LINK_CACHE[link]:
+                    if "_ENV_" not in env_pair['key']:
+                        envvars["%s_ENV_%s" % (link_names[i], env_pair['key'])] = env_pair['value']
         else:
             envvars = os.environ
         return envvars
