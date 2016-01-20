@@ -1,9 +1,6 @@
 import os
 import re
 import urlparse
-from multiprocessing.pool import ThreadPool
-
-import haproxy
 
 LINK_CACHE = {}
 
@@ -19,11 +16,11 @@ class Specs(object):
     service_alias_match = re.compile(r"_PORT_\d{1,5}_(TCP|UDP)$")
     detailed_service_alias_match = re.compile(r"_\d+_PORT_\d{1,5}_(TCP|UDP)$")
 
-    def __init__(self, tutum_haproxy_container=None, tutum_haproxy_service=None):
-        self.envvars = self._parse_envvars(tutum_haproxy_container)
-        self.service_aliases = self._parser_service_aliases(tutum_haproxy_service)
+    def __init__(self, links=None):
+        self.envvars = self._parse_envvars(links)
+        self.service_aliases = self._parser_service_aliases(links)
         self.details = self._parse_details()
-        self.routes = self._parse_routes(tutum_haproxy_container)
+        self.routes = self._parse_routes(links)
         self.vhosts = self._parse_vhosts()
         self.merge_services_with_same_vhost()
 
@@ -53,30 +50,23 @@ class Specs(object):
                     vhosts.append(vhost)
             self.vhosts = vhosts
 
-    def _parse_envvars(self, tutum_haproxy_container):
+    def _parse_envvars(self, links):
         envvars = {}
-        if tutum_haproxy_container:
-            links = [link["to_container"] for link in tutum_haproxy_container.linked_to_container]
-            link_names = [link["name"].upper().replace("-", "_") for link in tutum_haproxy_container.linked_to_container]
-            new_links = filter(lambda x: x not in LINK_CACHE, links)
-            pool = ThreadPool(processes=10)
-            containers = pool.map(haproxy.Haproxy.fetch_tutum_obj, new_links)
-            for i, link in enumerate(new_links):
-                LINK_CACHE[link] = containers[i].container_envvars
-            for i, link in enumerate(links):
-                for env_pair in LINK_CACHE[link]:
-                    if "_ENV_" not in env_pair['key']:
-                        envvars["%s_ENV_%s" % (link_names[i], env_pair['key'])] = env_pair['value']
+        if links:
+            for link in links.itervalues():
+                envvars.update(link["container_envvars"])
         else:
             envvars = os.environ
         return envvars
 
-    def _parser_service_aliases(self, tutum_haproxy_services):
-        if tutum_haproxy_services:
-            service_aliases = [service["name"].upper().replace("-", "_")
-                               for service in tutum_haproxy_services.linked_to_service]
+    def _parser_service_aliases(self, links):
+        service_aliases = []
+        if links:
+            for link in links.itervalues():
+                if link["service_name"] not in service_aliases:
+                    service_aliases.append(link["service_name"])
         else:
-            service_aliases = []
+
             for key, value in self.envvars.iteritems():
                 match = Specs.service_alias_match.search(key)
                 if match:
@@ -102,8 +92,8 @@ class Specs(object):
 
         return env_parser.get_details()
 
-    def _parse_routes(self, tutum_haproxy_container):
-        return RouteParser.parse(self.details, tutum_haproxy_container)
+    def _parse_routes(self, links):
+        return RouteParser.parse(self.details, links)
 
     def _parse_vhosts(self):
         # copy virtual_host to vritual_host_str, and then parse virtual_host
@@ -186,40 +176,37 @@ class RouteParser(object):
     detailed_service_alias_match = re.compile(r"_\d+_PORT_\d{1,5}_(TCP|UDP)$")
 
     @staticmethod
-    def parse(details, tutum_haproxy_container=None):
-        if tutum_haproxy_container:
-            return RouteParser.parse_tutum_routes(details, tutum_haproxy_container.linked_to_container)
+    def parse(details, links=None):
+        if links:
+            return RouteParser.parse_tutum_routes(details, links)
         else:
             return RouteParser.parse_local_routes(details, os.environ)
 
     @staticmethod
-    def parse_tutum_routes(details, container_links):
-        # Input:  details         = {'HELLO_1': {'exclude_ports': ['3306']}}
-        #         container_links = [{"endpoints": {"80/tcp": "tcp://10.7.0.3:80", "3306/tcp": "tcp://10.7.0.8:3306"},
-        #                             "name": "hello-1",
-        #                             "from_container": "/api/v1/container/702d18d4-7934-4715-aea3-c0637f1a4129/",
-        #                             "to_container": "/api/v1/container/60b850b7-593e-461b-9b61-5fe1f5a681aa/"},
-        #                            {"endpoints": {"80/tcp": "tcp://10.7.0.5:80"},
-        #                              "name": "hello-2",
-        #                              "from_container": "/api/v1/container/702d18d4-7934-4715-aea3-c0637f1a4129/",
-        #                              "to_container": "/api/v1/container/65b18c61-b551-4c7f-a92b-06ef95494d5a/"}]
-        # Output: links           = {'HELLO': [{'proto': 'tcp', 'addr': '10.7.0.3', 'port': '80'},
-        #                                      {'proto': 'tcp', 'addr': '10.7.0.5', 'port': '80'}]
+    def parse_tutum_routes(details, links):
+        # Input:  details = {'HELLO_1': {'exclude_ports': ['3306']}}
+        #         links   = {'/api/v1/container/a155cb3a-d6b0-4472-9863-4b29fd84e717/':{
+        #                       'endpoints': {'80/tcp': 'tcp://10.7.0.3:80'},
+        # 		                'container_envvars': {'HW-1_ENV_VIRTUALHOST': '*'},
+        # 		                'service_name': 'HW',
+        # 		                'container_uri': '/api/v1/container/a155cb3a-d6b0-4472-9863-4b29fd84e717/',
+        # 		                'service_uri': '/api/v1/service/35e6c3fe-8eb9-4c18-a094-234b6fa65578/',
+        # 		                'container_name': 'HW_1'}
+        #                   }
+        # Output: links   = {u'HW': [{'container_name': u'HW_1', 'proto': u'tcp', 'port': u'80', 'addr': u'10.7.0.3'}]}
         routes = {}
-        for container_link in container_links:
-            container_name = container_link.get("name").upper().replace("-", "_")
-            pos = container_name.rfind("_")
-            if pos > 0:
-                service_alias = container_name[:pos]
-                for _, value in container_link.get("endpoints", {}).iteritems():
-                    route = RouteParser.backend_match.match(value).groupdict()
-                    route.update({"container_name": container_name})
-                    exclude_ports = details.get(service_alias, {}).get("exclude_ports")
-                    if not exclude_ports or (exclude_ports and route["port"] not in exclude_ports):
-                        if service_alias in routes:
-                            routes[service_alias].append(route)
-                        else:
-                            routes[service_alias] = [route]
+        for link in links.itervalues():
+            container_name = link["container_name"]
+            service_alias = link["service_name"]
+            for endpoint in link["endpoints"].itervalues():
+                route = RouteParser.backend_match.match(endpoint).groupdict()
+                route.update({"container_name": container_name})
+                exclude_ports = details.get(service_alias, {}).get("exclude_ports")
+                if not exclude_ports or (exclude_ports and route["port"] not in exclude_ports):
+                    if service_alias in routes:
+                        routes[service_alias].append(route)
+                    else:
+                        routes[service_alias] = [route]
         return routes
 
     @staticmethod

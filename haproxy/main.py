@@ -1,7 +1,7 @@
 import logging
 import os
-import sys
 import signal
+import sys
 
 import tutum
 
@@ -27,6 +27,7 @@ def run_haproxy(msg=None):
 
 def tutum_event_handler(event):
     logger.debug(event)
+    logger.debug(Haproxy.cls_linked_services)
     # When service scale up/down or container start/stop/terminate/redeploy, reload the service
     if event.get("state", "") not in ["In progress", "Pending", "Terminating", "Starting", "Scaling", "Stopping"] and \
                     event.get("type", "").lower() in ["container", "service"] and \
@@ -37,20 +38,7 @@ def tutum_event_handler(event):
 
     # Add/remove services linked to haproxy
     if event.get("state", "") == "Success" and Haproxy.cls_service_uri in event.get("parents", []):
-        service = Haproxy.fetch_tutum_obj(Haproxy.cls_service_uri)
-        service_endpoints = [srv.get("to_service") for srv in service.linked_to_service]
-        if Haproxy.cls_linked_services != service_endpoints:
-            services_unlinked = ", ".join([parse_uuid_from_resource_uri(uri) for uri in
-                                           set(Haproxy.cls_linked_services) - set(service_endpoints)])
-            services_linked = ", ".join([parse_uuid_from_resource_uri(uri) for uri in
-                                         set(service_endpoints) - set(Haproxy.cls_linked_services)])
-            msg = "Tutum event:"
-            if services_unlinked:
-                msg += " service %s is unlinked from HAProxy" % services_unlinked
-            if services_linked:
-                msg += " service %s is linked to HAProxy" % services_linked
-
-            run_haproxy(msg)
+        run_haproxy()
 
 
 def create_pid_file():
@@ -77,17 +65,22 @@ def main():
     if Haproxy.cls_container_uri and Haproxy.cls_service_uri:
         if Haproxy.cls_tutum_auth:
             logger.info(
-                "Tutum-haproxy %s (PID: %s) has access to Tutum API - will reload list of backends in real-time" % (__version__, pid))
+                    "Tutum-haproxy %s (PID: %s) has access to Tutum API - will reload list of backends in real-time" % (
+                        __version__, pid))
         else:
             logger.warning(
-                "Tutum-haproxy %s (PID: %s) doesn't have access to Tutum API and it's running in Tutum - you might want to"
-                " give an API role to this service for automatic backend reconfiguration" % (__version__, pid))
+                    "Tutum-haproxy %s (PID: %s) doesn't have access to Tutum API and it's running in Tutum - you might want to"
+                    " give an API role to this service for automatic backend reconfiguration" % (__version__, pid))
     else:
         logger.info("Tutum-haproxy %s (PID: %s) is not running in Tutum" % (__version__, pid))
 
     if Haproxy.cls_container_uri and Haproxy.cls_service_uri and Haproxy.cls_tutum_auth:
+        def _websocket_open():
+            Haproxy.cls_linked_container_object_cache.clear()
+            run_haproxy("Websocket open")
+
         events = tutum.TutumEvents()
-        events.on_open(lambda: run_haproxy("Websocket open"))
+        events.on_open(_websocket_open)
         events.on_close(lambda: logger.info("Websocket close"))
         events.on_message(tutum_event_handler)
         events.run_forever()
