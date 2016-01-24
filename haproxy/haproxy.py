@@ -97,7 +97,7 @@ class Haproxy(object):
             for linked_container in linked_containers:
                 linked_container_uri = linked_container.resource_uri
                 linked_container_service_uri = linked_container.service
-                linked_container_name = linked_container.name.upper().replace("-", "_")
+                linked_container_name = links[linked_container_uri]["container_name"]
                 linked_container_envvars = {}
 
                 for envvar in linked_container.container_envvars:
