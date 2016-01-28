@@ -51,7 +51,7 @@ Settings in this part is immutable, you have to redeploy HAProxy service to make
 
 |env var|default|description|
 |:-----:|:-----:|:----------|
-|DEFAULT_SSL_CERT||Default ssl cert, a pem file with private key followed by public certificate, '\n'(two chars) as the line separator.|
+|DEFAULT_SSL_CERT||Default ssl cert, a pem file content with private key followed by public certificate, '\n'(two chars) as the line separator. should be formatted as one line - see [SSL Termination](#ssl-termination)|
 |EXTRA_SSL_CERTS||List of extra certificate names separated by space, eg. `CERT1 CERT2 CERT3`. You also need to specify each certifcate as separate env variables like so: `CERT1="<cert-body1>"`, `CERT2="<cert-body2>"`, `CERT3="<cert-body3>"`|
 |BALANCE|roundrobin|load balancing algorithm to use. Possible values include: `roundrobin`, `static-rr`, `source`, `leastconn`. See:[HAProxy:balance](https://cbonte.github.io/haproxy-dconv/configuration-1.5.html#4-balance)|
 |MODE|http|mode of load balancing for HAProxy. Possible values include: `http`, `tcp`, `health`|
@@ -157,13 +157,14 @@ To set SSL certificate, you can either:
 
 The difference between `SSL_CERT` and `DEFAULT_SSL_CERT` is that, the multiple certificates specified by `SSL_CERT` are stores in as cert1.pem, cert2.pem, ..., whereas the one specified by `DEFAULT_SSL_CERT` is always stored as cert0.pem. In that case, HAProxy will use cert0.pem as the default certificate when there is no SNI match. However, when multiple `DEFAULT_SSL_CERTICATE` is provided, only one of the certificates can be stored as cert0.pem, others are discarded.
 
-The certificate specified in `tutum/haproxy` or in the linked application services is a pem file, containing a private key followed by a public certificate(private key must be put before the public certificate, order matters). You can run the following script to generate a self-signed certificate:
+#### PEM Files
+The certificate specified in `tutum/haproxy` or in the linked application services is a pem file, containing a private key followed by a public certificate(private key must be put before the public certificate and any extra Authority certificates, order matters). You can run the following script to generate a self-signed certificate:
 
 	openssl req -x509 -newkey rsa:2048 -keyout key.pem -out ca.pem -days 1080 -nodes -subj '/CN=*/O=My Company Name LTD./C=US'
 	cp key.pem cert.pem
 	cat ca.pem >> cert.pem
 
-Once you have the pem file, you can run:
+Once you have the pem file, you can run this command to convert the file correctly to one line:
 
 	awk 1 ORS='\\n' cert.pem
 
