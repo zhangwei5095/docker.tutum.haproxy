@@ -23,7 +23,7 @@ class Haproxy(object):
     envvar_maxconn = os.getenv("MAXCONN", "4096")
     envvar_mode = os.getenv("MODE", "http")
     envvar_option = os.getenv("OPTION", "redispatch, httplog, dontlognull, forwardfor").split(",")
-    envvar_rsyslog_destnation = os.getenv("RSYSLOG_DESTINATION", "127.0.0.1")
+    envvar_rsyslog_destination = os.getenv("RSYSLOG_DESTINATION", "127.0.0.1")
     envvar_ssl_bind_ciphers = os.getenv("SSL_BIND_CIPHERS")
     envvar_ssl_bind_options = os.getenv("SSL_BIND_OPTIONS")
     envvar_stats_auth = os.getenv("STATS_AUTH", "stats:stats")
@@ -264,8 +264,8 @@ class Haproxy(object):
     @classmethod
     def _config_global_defaults(cls):
         cfg = OrderedDict()
-        cfg["global"] = ["log %s local0" % cls.envvar_rsyslog_destnation,
-                         "log %s local1 notice" % cls.envvar_rsyslog_destnation,
+        cfg["global"] = ["log %s local0" % cls.envvar_rsyslog_destination,
+                         "log %s local1 notice" % cls.envvar_rsyslog_destination,
                          "log-send-hostname",
                          "maxconn %s" % cls.envvar_maxconn,
                          "pidfile /var/run/haproxy.pid",
