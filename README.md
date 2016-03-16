@@ -107,7 +107,7 @@ Both virtual host and virtual path can be specified in environment variable `VIR
 |:---:|:-----:|:---------|
 |scheme|http|possible values: `http`, `https`, `wss`|
 |domain||virtual host. `*` can be used as the wildcard|
-|port|80/433|port number of the virtual host. When the scheme is `https`  `wss`, the default port will be to `443`|
+|port|80/443|port number of the virtual host. When the scheme is `https`  `wss`, the default port will be to `443`|
 |/path||virtual path, starts with `/`. `*` can be used as the wildcard|
 
 ###examples of matching
@@ -278,7 +278,7 @@ The certificate in `YOUR_CERT_TEXT` is a combination of private key followed by 
 Use the following:
 
     docker run -d -e FORCE_SSL=yes -e SSL_CERT="YOUR_CERT_TEXT" --name webapp tutum/hello-world
-    docker run -d --link webapp:webapp -p 443:443 tutum/haproxy
+    docker run -d --link webapp:webapp -p 80:80 -p 443:443 tutum/haproxy
 
 #### I want to set up virtual host routing by domain
 
